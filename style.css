@@ -1,0 +1,257 @@
+/* =========================================================
+   Student Finance Tracker — Custom Stylesheet
+   Stack: Bootstrap 5 + custom CSS3
+   ========================================================= */
+
+/* ---- CSS Variables ---- */
+:root {
+  --clr-primary:       #2563eb;
+  --clr-primary-dark:  #1e4fc2;
+  --clr-accent:        #f97316;
+  --clr-success:       #16a34a;
+  --clr-danger:        #dc2626;
+  --clr-warning:       #d97706;
+  --clr-bg:            #f0f4f9;
+  --clr-surface:       #ffffff;
+  --clr-border:        #e2e8f0;
+  --clr-text:          #1e293b;
+  --clr-muted:         #64748b;
+
+  --radius-md: 0.75rem;
+  --radius-lg: 1rem;
+  --shadow-sm: 0 1px 4px rgba(0,0,0,.07);
+  --shadow-md: 0 4px 16px rgba(0,0,0,.10);
+  --transition: 0.2s ease;
+}
+
+/* ---- Base ---- */
+body {
+  background-color: var(--clr-bg);
+  color: var(--clr-text);
+  font-family: -apple-system, "Segoe UI", system-ui, sans-serif;
+  font-size: 0.925rem;
+}
+
+/* ---- Navbar ---- */
+.navbar {
+  background-color: var(--clr-primary) !important;
+}
+.navbar-brand span {
+  font-size: 1.1rem;
+  letter-spacing: -0.3px;
+}
+.navbar .nav-link {
+  font-size: 0.875rem;
+  transition: opacity var(--transition);
+}
+.navbar .nav-link:hover { opacity: 0.75; }
+
+/* ---- Section Title ---- */
+.section-title {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--clr-text);
+  letter-spacing: -0.2px;
+}
+
+/* =========================================================
+   Stat Cards
+   ========================================================= */
+.stat-card {
+  border-radius: var(--radius-md) !important;
+  transition: transform var(--transition), box-shadow var(--transition);
+  cursor: default;
+}
+.stat-card:hover {
+  transform: translateY(-3px);
+  box-shadow: var(--shadow-md) !important;
+}
+.stat-icon {
+  width: 52px;
+  height: 52px;
+  border-radius: 0.65rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+/* Soft icon backgrounds */
+.bg-primary-soft { background-color: #dbeafe; }
+.bg-success-soft { background-color: #dcfce7; }
+.bg-danger-soft  { background-color: #fee2e2; }
+.bg-warning-soft { background-color: #fef3c7; }
+
+.stat-label {
+  font-size: 0.78rem;
+  color: var(--clr-muted);
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+.stat-value {
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: var(--clr-text);
+  line-height: 1.3;
+}
+
+/* =========================================================
+   Filter Card
+   ========================================================= */
+.card {
+  border-radius: var(--radius-md) !important;
+}
+.card-body { padding: 1.1rem; }
+
+.form-label {
+  color: var(--clr-muted);
+  font-size: 0.78rem;
+  margin-bottom: 0.3rem;
+}
+.form-control,
+.form-select {
+  border-radius: 0.5rem;
+  border-color: var(--clr-border);
+  font-size: 0.875rem;
+  transition: border-color var(--transition), box-shadow var(--transition);
+}
+.form-control:focus,
+.form-select:focus {
+  border-color: var(--clr-primary);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+}
+
+/* =========================================================
+   Transaction Table
+   ========================================================= */
+.table-head th {
+  background-color: #f8fafc;
+  color: var(--clr-muted);
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  border-bottom: 1px solid var(--clr-border);
+  padding-top: 0.85rem;
+  padding-bottom: 0.85rem;
+}
+.table > :not(caption) > * > * {
+  border-color: var(--clr-border);
+}
+.table tbody tr {
+  transition: background-color var(--transition);
+}
+.table tbody tr:hover {
+  background-color: #f1f5fb;
+}
+
+/* Amount column */
+.amount-income {
+  color: var(--clr-success);
+  font-weight: 700;
+}
+.amount-expense {
+  color: var(--clr-danger);
+  font-weight: 700;
+}
+
+/* Badges */
+.badge-income {
+  background-color: #dcfce7;
+  color: var(--clr-success);
+  font-weight: 600;
+  font-size: 0.72rem;
+  padding: 0.3em 0.65em;
+  border-radius: 999px;
+}
+.badge-expense {
+  background-color: #fee2e2;
+  color: var(--clr-danger);
+  font-weight: 600;
+  font-size: 0.72rem;
+  padding: 0.3em 0.65em;
+  border-radius: 999px;
+}
+.badge-category {
+  background-color: #f1f5f9;
+  color: var(--clr-muted);
+  font-weight: 500;
+  font-size: 0.72rem;
+  padding: 0.3em 0.65em;
+  border-radius: 999px;
+}
+
+/* Action buttons */
+.btn-action {
+  border: none;
+  background: transparent;
+  padding: 0.3rem 0.45rem;
+  border-radius: 0.4rem;
+  transition: background var(--transition), color var(--transition);
+  font-size: 0.95rem;
+  line-height: 1;
+}
+.btn-action-edit { color: var(--clr-primary); }
+.btn-action-edit:hover { background: #dbeafe; color: var(--clr-primary-dark); }
+.btn-action-delete { color: var(--clr-danger); }
+.btn-action-delete:hover { background: #fee2e2; color: #b91c1c; }
+
+/* Empty state */
+#emptyState { min-height: 200px; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+#emptyState.d-none { display: none !important; }
+
+/* =========================================================
+   Charts
+   ========================================================= */
+.chart-wrapper {
+  position: relative;
+  height: 240px;
+}
+
+/* =========================================================
+   Modal
+   ========================================================= */
+.modal-content {
+  border-radius: var(--radius-lg) !important;
+}
+.modal-header { padding: 1.25rem 1.25rem 0.5rem; }
+.modal-body   { padding: 0.75rem 1.25rem; }
+.modal-footer { padding: 0.5rem 1.25rem 1.25rem; }
+
+/* =========================================================
+   Footer
+   ========================================================= */
+.footer {
+  border-top: 1px solid var(--clr-border);
+  background-color: var(--clr-bg);
+  margin-top: 1rem;
+}
+
+/* =========================================================
+   Bootstrap Overrides
+   ========================================================= */
+.btn-primary {
+  background-color: var(--clr-primary);
+  border-color: var(--clr-primary);
+}
+.btn-primary:hover,
+.btn-primary:focus {
+  background-color: var(--clr-primary-dark);
+  border-color: var(--clr-primary-dark);
+}
+.btn-outline-danger:hover { color: #fff; }
+.btn-outline-secondary { border-color: var(--clr-border); }
+.btn-outline-secondary:hover { background-color: #e2e8f0; border-color: #cbd5e1; color: var(--clr-text); }
+
+/* =========================================================
+   Responsive Tweaks
+   ========================================================= */
+@media (max-width: 576px) {
+  .stat-value { font-size: 1.05rem; }
+  .navbar-brand span { font-size: 0.95rem; }
+  .chart-wrapper { height: 200px; }
+}
+
+/* Smooth scroll */
+html { scroll-behavior: smooth; }
