@@ -19,7 +19,7 @@
     <div class="container-fluid px-4">
       <a class="navbar-brand fw-bold d-flex align-items-center gap-2" href="#">
         <i class="bi bi-wallet2 fs-4"></i>
-        <span>Student Finance Tracker</span>
+        <span>Finance Tracker</span>
       </a>
       <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarMenu">
         <span class="navbar-toggler-icon"></span>
@@ -34,6 +34,9 @@
           </li>
           <li class="nav-item">
             <a class="nav-link" href="#charts"><i class="bi bi-bar-chart-line me-1"></i>Grafik</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" href="#ai-assistant"><i class="bi bi-robot me-1"></i>AI Assistant</a>
           </li>
           <li class="nav-item ms-lg-2">
             <button class="btn btn-outline-light btn-sm" id="btnAddTransaction">
@@ -239,6 +242,117 @@
               </div>
             </div>
           </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== SECTION: AI SMART FINANCE ASSISTANT ===== -->
+    <section id="ai-assistant" class="mb-5">
+      <div class="d-flex align-items-center justify-content-between mb-3">
+        <h5 class="section-title mb-0">
+          <i class="bi bi-robot me-2 text-primary"></i>Smart Finance Assistant
+        </h5>
+        <span class="badge bg-primary-soft text-primary px-3 py-2 rounded-pill" style="font-size:0.75rem;">
+          <i class="bi bi-stars me-1"></i>AI Powered
+        </span>
+      </div>
+
+      <!-- Environment Warning Banner (shown by JS when not on a PHP server) -->
+      <div class="alert alert-warning alert-dismissible d-none mb-3" id="envWarningBanner" role="alert">
+        <div class="d-flex gap-2 align-items-start">
+          <i class="bi bi-exclamation-triangle-fill flex-shrink-0 mt-1"></i>
+          <div>
+            <strong>Perhatian: Fitur AI membutuhkan PHP server</strong><br>
+            <span id="envWarningText"></span>
+          </div>
+        </div>
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Tutup"></button>
+      </div>
+
+      <div class="row g-3">
+
+        <!-- Left: Chat Window -->
+        <div class="col-12 col-lg-8">
+          <div class="card border-0 shadow-sm chat-card h-100 d-flex flex-column">
+
+            <!-- Chat Header -->
+            <div class="chat-header d-flex align-items-center justify-content-between px-4 py-3">
+              <div class="d-flex align-items-center gap-3">
+                <div class="ai-avatar">
+                  <i class="bi bi-robot"></i>
+                </div>
+                <div>
+                  <p class="mb-0 fw-bold" style="font-size:0.9rem;">Fin – Asisten Keuangan AI</p>
+                  <p class="mb-0 text-muted" style="font-size:0.75rem;" id="aiStatusText">
+                    <span class="status-dot online"></span>Siap membantu kamu
+                  </p>
+                </div>
+              </div>
+              <button class="btn btn-sm btn-outline-secondary" id="btnClearChat" title="Hapus percakapan">
+                <i class="bi bi-trash3 me-1"></i>Hapus Chat
+              </button>
+            </div>
+
+            <!-- Chat Messages Area -->
+            <div class="chat-messages flex-grow-1" id="chatMessages">
+              <!-- Welcome message injected by JS -->
+            </div>
+
+            <!-- Typing indicator -->
+            <div class="chat-typing px-4 py-2 d-none" id="typingIndicator">
+              <div class="typing-bubble">
+                <span></span><span></span><span></span>
+              </div>
+              <small class="text-muted ms-2">Fin sedang mengetik…</small>
+            </div>
+
+            <!-- Chat Input -->
+            <div class="chat-input-area px-4 pb-4 pt-2">
+              <div class="input-group">
+                <input
+                  type="text"
+                  class="form-control"
+                  id="chatInput"
+                  placeholder="Tanya sesuatu tentang keuanganmu…"
+                  maxlength="500"
+                  autocomplete="off"
+                />
+                <button class="btn btn-primary" id="btnSendChat" title="Kirim">
+                  <i class="bi bi-send-fill"></i>
+                </button>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- Right: Suggested Questions + Quick Summary -->
+        <div class="col-12 col-lg-4">
+
+          <!-- Suggested Questions -->
+          <div class="card border-0 shadow-sm mb-3">
+            <div class="card-body">
+              <p class="fw-bold mb-3" style="font-size:0.85rem;">
+                <i class="bi bi-lightbulb text-warning me-2"></i>Pertanyaan Cepat
+              </p>
+              <div class="d-flex flex-column gap-2" id="suggestedQuestions">
+                <!-- Injected by JS -->
+              </div>
+            </div>
+          </div>
+
+          <!-- AI Quick Summary Card -->
+          <div class="card border-0 shadow-sm">
+            <div class="card-body">
+              <p class="fw-bold mb-3" style="font-size:0.85rem;">
+                <i class="bi bi-clipboard2-data text-primary me-2"></i>Ringkasan Cepat
+              </p>
+              <div id="aiQuickSummary">
+                <!-- Injected by JS -->
+              </div>
+            </div>
+          </div>
+
         </div>
       </div>
     </section>

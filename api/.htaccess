@@ -1,0 +1,5 @@
+# Block direct HTTP access to config.php to protect the API key
+<Files "config.php">
+    Order allow,deny
+    Deny from all
+</Files>

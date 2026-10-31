@@ -753,7 +753,459 @@ transactionModalEl.addEventListener('hidden.bs.modal', () => {
 function init() {
   populateFilterCategories();
   refreshUI();
+  initAIAssistant();
 }
 
 // Run on DOM ready
 document.addEventListener('DOMContentLoaded', init);
+
+// =========================================================
+// 15. AI SMART FINANCE ASSISTANT
+// =========================================================
+
+/**
+ * Endpoint of the PHP backend proxy.
+ * All requests to OpenAI are routed through this file
+ * so the API key never appears in front-end JS.
+ */
+const AI_PROXY_URL = 'api/chat.php';
+
+/** In-memory chat history for multi-turn context (user+assistant pairs) */
+let chatHistory = [];
+
+/** Suggested quick-question list */
+const SUGGESTED_QUESTIONS = [
+  'Berapa total pengeluaran saya bulan ini?',
+  'Kategori apa yang paling banyak menghabiskan uang?',
+  'Apakah pengeluaran saya bulan ini terlalu besar?',
+  'Berikan tips agar saya bisa lebih hemat.',
+  'Buatkan ringkasan kondisi keuangan saya.',
+];
+
+// ---- DOM references for AI section ----
+const elChatMessages     = document.getElementById('chatMessages');
+const elChatInput        = document.getElementById('chatInput');
+const elBtnSendChat      = document.getElementById('btnSendChat');
+const elBtnClearChat     = document.getElementById('btnClearChat');
+const elTypingIndicator  = document.getElementById('typingIndicator');
+const elAiStatusText     = document.getElementById('aiStatusText');
+const elSuggestedQs      = document.getElementById('suggestedQuestions');
+const elAiQuickSummary   = document.getElementById('aiQuickSummary');
+
+// =========================================================
+// 15a. FINANCIAL CONTEXT BUILDER
+// =========================================================
+
+/**
+ * Build a structured financial context string from the user's transactions.
+ * This is injected into the AI system prompt so the model reasons on real data.
+ * @returns {string}
+ */
+function buildFinancialContext() {
+  const transactions = getTransactions();
+
+  if (transactions.length === 0) {
+    return 'Pengguna belum memiliki data transaksi yang tersimpan.';
+  }
+
+  // Aggregate totals
+  const totalIncome  = transactions.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0);
+  const totalExpense = transactions.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0);
+  const balance      = totalIncome - totalExpense;
+  const count        = transactions.length;
+
+  // Expense by category
+  const catMap = {};
+  transactions.filter(t => t.type === 'expense').forEach(({ category, amount }) => {
+    catMap[category] = (catMap[category] || 0) + amount;
+  });
+  const catLines = Object.entries(catMap)
+    .sort((a, b) => b[1] - a[1])
+    .map(([cat, amt]) => {
+      const pct = totalExpense > 0 ? ((amt / totalExpense) * 100).toFixed(1) : '0.0';
+      return `  - ${cat}: ${formatRupiah(amt)} (${pct}%)`;
+    })
+    .join('\n');
+
+  // Current month stats
+  const now = new Date();
+  const thisMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  const monthTx = transactions.filter(t => t.date.startsWith(thisMonth));
+  const monthIncome  = monthTx.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0);
+  const monthExpense = monthTx.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0);
+
+  // Last 10 transactions as sample
+  const recent = [...transactions]
+    .sort((a, b) => new Date(b.date) - new Date(a.date))
+    .slice(0, 10)
+    .map(t => `  - [${t.date}] ${t.type === 'income' ? 'Pemasukan' : 'Pengeluaran'} | ${t.category} | ${t.description} | ${formatRupiah(t.amount)}`)
+    .join('\n');
+
+  return `DATA KEUANGAN PENGGUNA (real-time dari aplikasi):
+Total Transaksi: ${count}
+Total Pemasukan (semua waktu): ${formatRupiah(totalIncome)}
+Total Pengeluaran (semua waktu): ${formatRupiah(totalExpense)}
+Saldo Saat Ini: ${formatRupiah(balance)}
+
+Bulan Ini (${thisMonth}):
+  Pemasukan: ${formatRupiah(monthIncome)}
+  Pengeluaran: ${formatRupiah(monthExpense)}
+  Saldo Bulan Ini: ${formatRupiah(monthIncome - monthExpense)}
+
+Pengeluaran per Kategori (semua waktu):
+${catLines || '  (tidak ada pengeluaran)'}
+
+10 Transaksi Terakhir:
+${recent}`;
+}
+
+// =========================================================
+// 15b. AI QUICK SUMMARY (sidebar)
+// =========================================================
+
+/**
+ * Render the sidebar quick-summary card with key financial metrics.
+ * Called on init and after each transaction change (via refreshUI → renderAiSummary).
+ */
+function renderAiSummary() {
+  const transactions = getTransactions();
+
+  if (transactions.length === 0) {
+    elAiQuickSummary.innerHTML =
+      '<p class="text-muted small mb-0">Belum ada data transaksi. Tambahkan transaksi untuk melihat ringkasan.</p>';
+    return;
+  }
+
+  const income  = transactions.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0);
+  const expense = transactions.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0);
+  const balance = income - expense;
+  const ratio   = income > 0 ? ((expense / income) * 100).toFixed(0) : '—';
+
+  // Top expense category
+  const catMap = {};
+  transactions.filter(t => t.type === 'expense').forEach(({ category, amount }) => {
+    catMap[category] = (catMap[category] || 0) + amount;
+  });
+  const topCat = Object.entries(catMap).sort((a, b) => b[1] - a[1])[0];
+
+  // Health indicator
+  let healthLabel = '🟢 Sehat';
+  let healthClass = 'text-success';
+  if (income > 0) {
+    const r = expense / income;
+    if (r > 0.9)      { healthLabel = '🔴 Kritis';  healthClass = 'text-danger'; }
+    else if (r > 0.7) { healthLabel = '🟡 Waspadai'; healthClass = 'text-warning'; }
+  }
+
+  const items = [
+    { label: 'Saldo',            value: formatRupiah(balance),    cls: balance >= 0 ? 'text-success' : 'text-danger' },
+    { label: 'Total Pemasukan',  value: formatRupiah(income),     cls: 'text-success' },
+    { label: 'Total Pengeluaran',value: formatRupiah(expense),    cls: 'text-danger'  },
+    { label: 'Rasio Belanja',    value: `${ratio}%`,              cls: '' },
+    { label: 'Terbesar',         value: topCat ? topCat[0] : '—', cls: '' },
+    { label: 'Kondisi',          value: healthLabel,              cls: healthClass },
+  ];
+
+  elAiQuickSummary.innerHTML = items.map(({ label, value, cls }) => `
+    <div class="ai-summary-item">
+      <span class="label">${label}</span>
+      <span class="value ${cls}">${value}</span>
+    </div>`).join('');
+}
+
+// =========================================================
+// 15c. CHAT MESSAGE RENDERING
+// =========================================================
+
+/**
+ * Append a message bubble to the chat window.
+ * Uses textContent / safe DOM methods to prevent XSS.
+ * @param {'user'|'ai'} role
+ * @param {string} text
+ */
+function appendMessage(role, text) {
+  const now = new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+
+  const row = document.createElement('div');
+  row.className = `chat-row ${role}`;
+
+  // Avatar
+  const avatar = document.createElement('div');
+  avatar.className = `bubble-avatar ${role}`;
+  avatar.innerHTML = role === 'ai' ? '<i class="bi bi-robot"></i>' : '<i class="bi bi-person-fill"></i>';
+
+  // Bubble
+  const bubble = document.createElement('div');
+  bubble.className = `chat-bubble ${role}`;
+
+  // Text (safe)
+  const textNode = document.createElement('span');
+  textNode.textContent = text;
+  bubble.appendChild(textNode);
+
+  // Timestamp
+  const time = document.createElement('span');
+  time.className = 'chat-time';
+  time.textContent = now;
+  bubble.appendChild(time);
+
+  row.appendChild(avatar);
+  row.appendChild(bubble);
+  elChatMessages.appendChild(row);
+
+  // Scroll to bottom
+  elChatMessages.scrollTop = elChatMessages.scrollHeight;
+}
+
+/**
+ * Show or hide the typing indicator and update status text.
+ * @param {boolean} show
+ */
+function setTyping(show) {
+  elTypingIndicator.classList.toggle('d-none', !show);
+  elBtnSendChat.disabled = show;
+  elChatInput.disabled   = show;
+
+  const dot = elAiStatusText.querySelector('.status-dot');
+  if (dot) {
+    dot.className = `status-dot ${show ? 'busy' : 'online'}`;
+  }
+  // Replace text node safely
+  const textNodes = [...elAiStatusText.childNodes].filter(n => n.nodeType === Node.TEXT_NODE);
+  textNodes.forEach(n => n.remove());
+  elAiStatusText.appendChild(
+    document.createTextNode(show ? 'Sedang menganalisis…' : 'Siap membantu kamu')
+  );
+
+  if (show) elChatMessages.scrollTop = elChatMessages.scrollHeight;
+}
+
+// =========================================================
+// 15d. AI API CALL (via PHP proxy)
+// =========================================================
+
+/**
+ * Send a question to the PHP backend proxy which forwards it to OpenAI.
+ * The system message always contains fresh financial context data.
+ * @param {string} userMessage
+ */
+async function sendToAI(userMessage) {
+  setTyping(true);
+
+  // Add user message to history
+  chatHistory.push({ role: 'user', content: userMessage });
+
+  // System prompt with real financial context
+  const systemPrompt = `Kamu adalah Fin, asisten keuangan mahasiswa yang cerdas, ramah, dan berbicara dalam Bahasa Indonesia yang santai namun profesional.
+
+Tugasmu:
+1. Menganalisis data keuangan pengguna dan memberikan insight yang relevan.
+2. Memberikan rekomendasi penghematan yang realistis untuk mahasiswa.
+3. Menjawab pertanyaan keuangan berdasarkan data transaksi aktual yang diberikan.
+4. Jika data belum cukup untuk menjawab, sampaikan dengan jujur.
+5. JANGAN mengarang nominal, tanggal, atau kategori yang tidak ada di data.
+6. Gunakan format yang mudah dibaca: gunakan bullet point atau baris baru jika perlu.
+
+${buildFinancialContext()}`;
+
+  const payload = {
+    systemPrompt,
+    messages: chatHistory,
+  };
+
+  try {
+    const res = await fetch(AI_PROXY_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+
+    if (!res.ok) {
+      // Try to parse a JSON error body from our PHP proxy
+      const errData = await res.json().catch(() => ({}));
+      const serverMsg = errData.error || null;
+
+      // Map each HTTP status to a human-readable explanation.
+      // For statuses that carry a meaningful server message (serverMsg), prefer it —
+      // our PHP already formats them well. For statuses where PHP is never reached
+      // (405 from Live Server, 404 from wrong path) use a hardcoded guide.
+      const staticMessages = {
+        404: '❌ Endpoint tidak ditemukan (HTTP 404).\nPastikan file api/chat.php ada dan URL sudah benar.\nJangan buka index.html lewat file:// atau Live Server — gunakan XAMPP/Laragon/PHP CLI.',
+        405: '⚠️ Method tidak diizinkan (HTTP 405).\n\nIni terjadi karena kamu membuka project melalui VS Code Live Server atau browser langsung (file://).\nLive Server tidak dapat menjalankan PHP.\n\n✅ Solusi:\n1. Install XAMPP atau Laragon\n2. Salin folder project ke htdocs/ (XAMPP) atau www/ (Laragon)\n3. Buka http://localhost/ProjectIBM/\n\nAtau jalankan lewat terminal:\n  php -S localhost:8000\nlalu buka http://localhost:8000/',
+        419: '❌ CSRF token tidak valid (HTTP 419).\nCoba refresh halaman, lalu kirim pesan kembali.',
+      };
+
+      // For all other statuses, prefer the rich message from our PHP proxy (serverMsg).
+      // Fall back to a static message only if PHP returned nothing useful.
+      const finalMsg = staticMessages[res.status]
+        || serverMsg
+        || `❌ Terjadi kesalahan HTTP ${res.status}. Periksa log server untuk detail.`;
+
+      throw new Error(finalMsg);
+    }
+
+    const data = await res.json();
+    const aiReply = data.reply || 'Maaf, terjadi kesalahan pada respons AI.';
+
+    // Add AI response to history (keep last 20 messages to avoid token overflow)
+    chatHistory.push({ role: 'assistant', content: aiReply });
+    if (chatHistory.length > 20) chatHistory = chatHistory.slice(-20);
+
+    setTyping(false);
+    appendMessage('ai', aiReply);
+
+  } catch (err) {
+    setTyping(false);
+
+    // Network-level failure (no response at all — server not running)
+    const isNetworkError = err.message.includes('Failed to fetch') ||
+                           err.message.includes('NetworkError') ||
+                           err.message.includes('net::');
+    const errMsg = isNetworkError
+      ? '⚠️ Tidak dapat terhubung ke server (network error).\n\nKemungkinan penyebab:\n• Project dibuka lewat VS Code Live Server (tidak bisa PHP)\n• PHP server belum dijalankan\n\n✅ Solusi:\n1. Gunakan XAMPP / Laragon / PHP CLI\n2. Jalankan: php -S localhost:8000\n3. Buka http://localhost:8000/'
+      : err.message;
+
+    appendMessage('ai', errMsg);
+  }
+}
+
+// =========================================================
+// 15e. CHAT INTERACTION HANDLERS
+// =========================================================
+
+/** Handle sending a user message */
+function handleSendMessage() {
+  const text = elChatInput.value.trim();
+  if (!text) return;
+
+  elChatInput.value = '';
+  appendMessage('user', text);
+  sendToAI(text);
+}
+
+/** Render suggested question buttons */
+function renderSuggestedQuestions() {
+  elSuggestedQs.innerHTML = '';
+  SUGGESTED_QUESTIONS.forEach((q) => {
+    const btn = document.createElement('button');
+    btn.className = 'suggested-btn';
+    btn.textContent = q;
+    btn.addEventListener('click', () => {
+      elChatInput.value = '';
+      appendMessage('user', q);
+      sendToAI(q);
+    });
+    elSuggestedQs.appendChild(btn);
+  });
+}
+
+/** Show welcome message when chat is empty */
+function showWelcomeMessage() {
+  const transactions = getTransactions();
+  const hasData = transactions.length > 0;
+  const welcome = hasData
+    ? `Halo! Aku Fin 👋, asisten keuangan AI kamu.\n\nAku sudah membaca ${transactions.length} transaksimu. Tanyakan apa saja tentang kondisi keuanganmu, atau pilih salah satu pertanyaan cepat di sebelah kanan!`
+    : 'Halo! Aku Fin 👋, asisten keuangan AI kamu.\n\nKamu belum memiliki data transaksi. Silakan tambahkan beberapa transaksi terlebih dahulu, lalu aku bisa membantumu menganalisis keuanganmu!';
+  appendMessage('ai', welcome);
+}
+
+/** Clear chat conversation */
+function clearChat() {
+  elChatMessages.innerHTML = '';
+  chatHistory = [];
+  showWelcomeMessage();
+}
+
+// =========================================================
+// 15f. AI SECTION EVENT LISTENERS
+// =========================================================
+
+elBtnSendChat.addEventListener('click', handleSendMessage);
+elChatInput.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault();
+    handleSendMessage();
+  }
+});
+elBtnClearChat.addEventListener('click', clearChat);
+
+// =========================================================
+// 15g. AUTO-REFRESH AI SUMMARY ON DATA CHANGES
+// =========================================================
+
+/**
+ * Use a storage event listener so that whenever saveTransactions() writes
+ * to LocalStorage the AI Quick Summary card is automatically re-rendered.
+ * This works within the same tab because we dispatch the event manually.
+ */
+function notifyAISummaryUpdate() {
+  if (typeof renderAiSummary === 'function') renderAiSummary();
+}
+
+// Patch saveTransactions (defined at line ~47) to also trigger AI summary refresh.
+// We do this by observing mutations on the totalBalance element — the simplest
+// zero-duplication hook that fires after every refreshUI() call without touching
+// any existing logic.
+(function patchRefreshUIForAI() {
+  const target = document.getElementById('totalBalance');
+  if (!target) return;
+  const observer = new MutationObserver(() => {
+    notifyAISummaryUpdate();
+  });
+  observer.observe(target, { childList: true, subtree: true, characterData: true });
+})();
+
+// =========================================================
+// 15h. AI ASSISTANT INITIALISATION
+// =========================================================
+
+// =========================================================
+// 15i. ENVIRONMENT DETECTION
+// =========================================================
+
+/**
+ * Detect whether the page is running on a static file server (Live Server,
+ * file://, etc.) that cannot execute PHP, and display a warning banner.
+ *
+ * Known non-PHP environments:
+ *   - VS Code Live Server  → port 5500 or 5501
+ *   - file:// protocol
+ *   - Any port that is NOT 80, 443, 8000, 8080, 8888 (common PHP ports)
+ */
+function detectEnvironment() {
+  const { protocol, port, hostname } = window.location;
+  const portNum = parseInt(port, 10) || (protocol === 'https:' ? 443 : 80);
+
+  const isFileProtocol  = protocol === 'file:';
+  const isLiveServer    = portNum === 5500 || portNum === 5501;
+  const isKnownPHPPort  = [80, 443, 8000, 8080, 8888, 8888].includes(portNum);
+
+  // Also flag any localhost port that is clearly not a PHP server
+  const isUnknownPort   = hostname === 'localhost' && !isKnownPHPPort && !isLiveServer;
+
+  const banner  = document.getElementById('envWarningBanner');
+  const bannerText = document.getElementById('envWarningText');
+  if (!banner || !bannerText) return;
+
+  if (isFileProtocol || isLiveServer || isUnknownPort) {
+    let msg = '';
+    if (isFileProtocol) {
+      msg = 'Kamu membuka file langsung dari browser (file://). PHP tidak berjalan di mode ini.';
+    } else if (isLiveServer) {
+      msg = `VS Code Live Server (port ${portNum}) terdeteksi. Live Server hanya bisa menyajikan file statis — PHP tidak dieksekusi, sehingga fitur AI Agent akan menghasilkan error HTTP 405.`;
+    } else {
+      msg = `Port ${portNum} terdeteksi. Pastikan PHP server aktif di port ini.`;
+    }
+    msg += ' Gunakan XAMPP, Laragon, atau perintah <code>php -S localhost:8000</code> lalu buka <strong>http://localhost:8000/</strong>.';
+
+    bannerText.innerHTML = msg;
+    banner.classList.remove('d-none');
+  }
+}
+
+function initAIAssistant() {
+  detectEnvironment();
+  renderSuggestedQuestions();
+  renderAiSummary();
+  showWelcomeMessage();
+}
