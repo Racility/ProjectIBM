@@ -1,0 +1,37 @@
+# ============================================================
+# .gitignore — Student Finance Tracker
+# ============================================================
+
+# ---- API Key & konfigurasi sensitif (JANGAN pernah di-commit) ----
+api/config.php
+
+# ---- File .env (jika digunakan di masa depan) ----
+.env
+.env.local
+.env.*.local
+
+# ---- PHP dependencies ----
+vendor/
+
+# ---- Node.js dependencies ----
+node_modules/
+
+# ---- Log files ----
+*.log
+logs/
+storage/logs/
+
+# ---- Cache ----
+*.cache
+.cache/
+
+# ---- OS & editor noise ----
+.DS_Store
+Thumbs.db
+desktop.ini
+.vscode/settings.json
+.idea/
+
+# ---- PHP temp / session ----
+*.tmp
+*.swp
